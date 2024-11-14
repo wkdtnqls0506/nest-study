@@ -1,3 +1,4 @@
+import e from 'express';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,17 +8,7 @@ import {
   VersionColumn,
 } from 'typeorm';
 
-@Entity('movie')
-export class MovieEntity {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column()
-  title: string;
-
-  @Column()
-  genre: string;
-
+export class BaseEntity {
   @CreateDateColumn()
   createdAt: Date;
 
@@ -26,6 +17,18 @@ export class MovieEntity {
 
   @VersionColumn()
   version: number;
+}
+
+@Entity('movie')
+export class MovieEntity extends BaseEntity {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  title: string;
+
+  @Column()
+  genre: string;
 }
 
 //   @Transform(({ value }) => value.toUpperCase()) // 값을 변환시키고 싶을 때 사용
