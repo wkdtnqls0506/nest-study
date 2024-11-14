@@ -7,12 +7,15 @@ import {
   Param,
   Delete,
   Query,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { MovieService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 
 @Controller('movie')
+@UseInterceptors(ClassSerializerInterceptor) // class-transformer를 사용하여 응답 데이터를 serialize
 export class MovieController {
   constructor(private readonly movieService: MovieService) {}
 
