@@ -4,9 +4,11 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  ManyToOne,
 } from 'typeorm';
-import { BaseEntity } from './base.entity';
+import { BaseEntity } from '../../common/entity/base.entity';
 import { MovieDetailEntity } from './movie-detail.entity';
+import { DirectorEntity } from 'src/director/entity/director.entity';
 
 // ManyToOne Director -> 감독은 여러개의 영화를 만들 수 있음
 // OneToOne MovieDetail -> 영화는 하나의 상세 내용을 가질 수 있음
@@ -28,6 +30,9 @@ export class MovieEntity extends BaseEntity {
   }) // movieDetail의 id와 연결
   @JoinColumn() // OneToOne 관계는 어떤 쪽에서 소유를 해야하는지 모르기 때문에 해당 어노테이션 무조건 사용
   detail: MovieDetailEntity; // detailId 생성됨
+
+  @ManyToOne(() => DirectorEntity, (director) => director.id)
+  director: DirectorEntity; // directorId 생성됨
 }
 
 //   @Transform(({ value }) => value.toUpperCase()) // 값을 변환시키고 싶을 때 사용

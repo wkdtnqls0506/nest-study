@@ -5,6 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as Joi from 'joi';
 import { MovieEntity } from './movie/entity/movie.entity';
 import { MovieDetailEntity } from './movie/entity/movie-detail.entity';
+import { DirectorModule } from './director/director.module';
+import { DirectorEntity } from './director/entity/director.entity';
 
 @Module({
   imports: [
@@ -28,12 +30,13 @@ import { MovieDetailEntity } from './movie/entity/movie-detail.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [MovieEntity, MovieDetailEntity],
+        entities: [MovieEntity, MovieDetailEntity, DirectorEntity],
         synchronize: true,
       }),
       inject: [ConfigService],
     }),
     MovieModule,
+    DirectorModule,
   ],
 })
 export class AppModule {}
