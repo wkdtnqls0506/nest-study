@@ -1,23 +1,16 @@
-import e from 'express';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  VersionColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
+import { BaseEntity } from './base.entity';
+import { MovieDetailEntity } from './movie-detail.entity';
 
-export class BaseEntity {
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
-  @VersionColumn()
-  version: number;
-}
+// ManyToOne Director -> 감독은 여러개의 영화를 만들 수 있음
+// OneToOne MovieDetail -> 영화는 하나의 상세 내용을 가질 수 있음
+// ManyToMany Genre -> 영화는 여러개의 장르를 가질 수 있고, 장르는 여러개의 영화를 가질 수 있음
 
 @Entity('movie')
 export class MovieEntity extends BaseEntity {
@@ -29,6 +22,12 @@ export class MovieEntity extends BaseEntity {
 
   @Column()
   genre: string;
+
+  @OneToOne(() => MovieDetailEntity, (movieDetail) => movieDetail.id, {
+    cascade: true,
+  }) // movieDetail의 id와 연결
+  @JoinColumn() // OneToOne 관계는 어떤 쪽에서 소유를 해야하는지 모르기 때문에 해당 어노테이션 무조건 사용
+  detail: MovieDetailEntity; // detailId 생성됨
 }
 
 //   @Transform(({ value }) => value.toUpperCase()) // 값을 변환시키고 싶을 때 사용
