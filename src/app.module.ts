@@ -7,6 +7,8 @@ import { MovieEntity } from './movie/entity/movie.entity';
 import { MovieDetailEntity } from './movie/entity/movie-detail.entity';
 import { DirectorModule } from './director/director.module';
 import { DirectorEntity } from './director/entity/director.entity';
+import { GenreModule } from './genre/genre.module';
+import { GenreEntity } from './genre/entity/genre.entity';
 
 @Module({
   imports: [
@@ -30,13 +32,14 @@ import { DirectorEntity } from './director/entity/director.entity';
         username: configService.get<string>('DB_USERNAME'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
-        entities: [MovieEntity, MovieDetailEntity, DirectorEntity],
+        entities: [MovieEntity, MovieDetailEntity, DirectorEntity, GenreEntity],
         synchronize: true,
       }),
       inject: [ConfigService],
     }),
     MovieModule,
     DirectorModule,
+    GenreModule,
   ],
 })
 export class AppModule {}

@@ -1,6 +1,10 @@
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
+  IsString,
   registerDecorator,
   ValidationArguments,
   ValidationOptions,
@@ -42,18 +46,23 @@ export class UpdateMovieDto {
   // 필드가 존재할 경우, 해당 필드가 비어있지 않아야 한다.
   @IsNotEmpty()
   @IsOptional()
+  @IsString()
   title?: string;
 
-  @IsNotEmpty()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsNumber({}, { each: true })
   @IsOptional()
-  genre?: string;
+  genreIds: number[];
 
   @IsNotEmpty()
   @IsOptional()
+  @IsString()
   detail?: string;
 
   @IsNotEmpty()
   @IsOptional()
+  @IsNumber()
   directorId?: number;
 
   // @Validate(PasswordValidator)
