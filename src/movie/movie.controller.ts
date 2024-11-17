@@ -19,28 +19,28 @@ import { UpdateMovieDto } from './dto/update-movie.dto';
 export class MovieController {
   constructor(private readonly movieService: MovieService) {}
 
+  @Post()
+  create(@Body() body: CreateMovieDto) {
+    return this.movieService.create(body);
+  }
+
   @Get()
-  getMovies(@Query('title') title: string) {
-    return this.movieService.getManyMovies(title);
+  findAll(@Query('title') title: string) {
+    return this.movieService.findAll(title);
   }
 
   @Get(':id')
-  getMovie(@Param('id') id: string) {
-    return this.movieService.getMovieById(+id);
-  }
-
-  @Post()
-  postMovie(@Body() body: CreateMovieDto) {
-    return this.movieService.createMovie(body);
+  findOne(@Param('id') id: string) {
+    return this.movieService.findOne(+id);
   }
 
   @Patch(':id')
-  patchMovie(@Param('id') id: string, @Body() body: UpdateMovieDto) {
-    return this.movieService.updateMovie(+id, body);
+  update(@Param('id') id: string, @Body() body: UpdateMovieDto) {
+    return this.movieService.update(+id, body);
   }
 
   @Delete(':id')
-  deleteMovie(@Param('id') id: string) {
-    return this.movieService.deleteMovie(+id);
+  remove(@Param('id') id: string) {
+    return this.movieService.remove(+id);
   }
 }

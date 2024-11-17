@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Module } from '@nestjs/common';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { MovieEntity } from './entity/movie.entity';
@@ -21,29 +21,46 @@ export class MovieService {
     private readonly genreRepository: Repository<GenreEntity>,
   ) {}
 
-  getManyMovies(title?: string) {
-    if (!title) {
-      return this.movieRepository.find({
-        relations: ['director', 'genres'], // director 정보도 함께 가져옴
-      });
+  async findAll(title?: string) {
+    const qb = await this.movieRepository
+      .createQueryBuilder('movie') // MovieEntity에 대한 QueryBuilder 생성
+      .leftJoinAndSelect('movie.director', 'director') // relations: ['director']와 동일
+      .leftJoinAndSelect('movie.genres', 'genres');
+
+    if (title) {
+      qb.where('movie.title like :title', { title: `%${title}%` });
     }
 
-    return this.movieRepository.findAndCount({
-      where: {
-        title: Like(`%${title}%`),
-      },
-      relations: ['director', 'genres'],
-    });
+    return await qb.getManyAndCount();
+
+    // if (!title) {
+    //   return this.movieRepository.find({
+    //     relations: ['director', 'genres'], // director 정보도 함께 가져옴
+    //   });
+    // }
+    // return this.movieRepository.findAndCount({
+    //   where: {
+    //     title: Like(`%${title}%`),
+    //   },
+    //   relations: ['director', 'genres'],
+    // });
   }
 
-  async getMovieById(id: number) {
-    const movie = await this.movieRepository.findOne({
-      where: {
-        id,
-      },
-      relations: ['detail', 'director', 'genres'], // 같이 가져오고 싶은 값을 명시
-    });
+  async findOne(id: number) {
+    const movie = await this.movieRepository
+      .createQueryBuilder('movie')
+      .leftJoinAndSelect('movie.detail', 'detail') // relations: ['director']와 동일
+      .leftJoinAndSelect('movie.director', 'director')
+      .leftJoinAndSelect('movie.genres', 'genres')
+      .where('movie.id = :id', { id })
+      .getOne();
 
+    // const movie = await this.movieRepository.findOne({
+    //   where: {
+    //     id,
+    //   },
+    //   relations: ['detail', 'director', 'genres'], // 같이 가져오고 싶은 값을 명시
+    // });
     if (!movie) {
       throw new NotFoundException('존재하지 않는 ID 값의 영화입니다.');
     }
@@ -51,7 +68,7 @@ export class MovieService {
     return movie;
   }
 
-  async createMovie(createMovieDto: CreateMovieDto) {
+  async create(createMovieDto: CreateMovieDto) {
     const director = await this.directorRepository.findOne({
       where: {
         id: createMovieDto.directorId,
@@ -64,7 +81,7 @@ export class MovieService {
 
     const genres = await this.genreRepository.find({
       where: {
-        id: In(createMovieDto.genreIds),
+        id: In(createMovieDto.genreIds), // WHERE id IN (1, 2, 3)
       },
     });
 
@@ -80,32 +97,69 @@ export class MovieService {
     // });
 
     // 2. MovieEntity에 detail 관계 설정
-    const movie = await this.movieRepository.save({
-      title: createMovieDto.title, // "겨울왕국3"
-      // detail: movieDetail, // detail: { detail: "겨울왕국입니다.", id: 1 } - 객체 형태
-      detail: {
-        detail: createMovieDto.detail, // 새로운 MovieDetailEntity 생성 (cascade:true 덕분에 detail을 자동으로 MovieDetailEntity에 매핑)
-      },
-      director,
-      genres,
-    });
+    // save() 할 때는 cascade로 한번에 조합이 되지만, QueryBuilder를 사용할 때는 따로 저장해서 권장하지 않음.
+    const movieDetail = await this.movieDetailRepository
+      .createQueryBuilder()
+      .insert()
+      .into(MovieDetailEntity)
+      .values({ detail: createMovieDto.detail })
+      .execute();
 
-    return movie;
+    const movieDetailId = movieDetail.identifiers[0].id;
+
+    const movie = await this.movieRepository
+      .createQueryBuilder()
+      .insert()
+      .into(MovieEntity)
+      .values({
+        title: createMovieDto.title,
+        detail: {
+          id: movieDetailId,
+        },
+        director,
+      })
+      .execute();
+
+    const movieId = movie.identifiers[0].id;
+
+    await this.movieRepository
+      .createQueryBuilder()
+      .relation(MovieEntity, 'genres')
+      .of(movieId)
+      .add(genres.map((genre) => genre.id));
+
+    // const movie = await this.movieRepository.save({
+    //   title: createMovieDto.title, // "겨울왕국3"
+    //   // detail: movieDetail, // detail: { detail: "겨울왕국입니다.", id: 1 } - 객체 형태
+    //   detail: {
+    //     detail: createMovieDto.detail, // 새로운 MovieDetailEntity 생성 (cascade:true 덕분에 detail을 자동으로 MovieDetailEntity에 매핑)
+    //   },
+    //   director,
+    //   genres,
+    // });
+
+    return await this.movieRepository.findOne({
+      where: { id: movieId },
+      relations: ['detail', 'director', 'genres'],
+    });
   }
 
-  async updateMovie(id: number, updateMovieDto: UpdateMovieDto) {
-    // 업데이트 하고 싶은 기존 영화 데이터 조회
+  async update(id: number, updateMovieDto: UpdateMovieDto) {
+    // 1. 수정할 영화를 movie 변수에 저장
     const movie = await this.movieRepository.findOne({
       where: { id },
-      relations: ['detail'],
+      relations: ['detail', 'genres'],
     });
 
+    // 2. 조회한 영화 데이터가 없는 경우의 예외 처리
     if (!movie) {
       throw new NotFoundException('존재하지 않는 ID 값의 영화입니다.');
     }
 
+    // 3. UpdateMovieDto에서 필요한 데이터 추출 - detail, directorId, genreIds는 관계 처리를 위해 별도로 사용
     const { detail, directorId, genreIds, ...movieRest } = updateMovieDto;
 
+    // 4. 감독이 업데이트 대상이라면? -> 수정할 감독 정보를 newDirector 변수에 저장
     let newDirector;
 
     if (directorId) {
@@ -122,6 +176,7 @@ export class MovieService {
       newDirector = director;
     }
 
+    // 5. 장르가 업데이트 대상이라면? -> 수정할 장르 정보를 newGenres 변수에 저장
     let newGenres;
 
     if (genreIds) {
@@ -140,32 +195,58 @@ export class MovieService {
       newGenres = genres;
     }
 
+    // 6. 업데이트할 필드 목록을 객체로 생성
+    // newGenres가 movieUpdateFields에 포함되지 않는 이유? -> genres는 ManyToMany 관계로, movie.genres에 대한 업데이트는 별도로 처리해야 함
     const movieUpdateFields = {
       ...movieRest,
       ...(newDirector && { director: newDirector }),
     };
 
     // 데이터 업데이트 (수정된 Entity 전체 반환 X)
-    await this.movieRepository.update({ id }, movieUpdateFields);
+    // await this.movieRepository.update({ id }, movieUpdateFields);
+    await this.movieRepository
+      .createQueryBuilder()
+      .update(MovieEntity)
+      .set(movieUpdateFields)
+      .where('id = :id', { id })
+      .execute();
 
     if (detail) {
-      await this.movieDetailRepository.update(
-        {
-          id: movie.detail.id,
-        },
-        { detail },
-      );
+      // await this.movieDetailRepository.update(
+      //   {
+      //     id: movie.detail.id,
+      //   },
+      //   { detail },
+      // );
+      await this.movieDetailRepository
+        .createQueryBuilder()
+        .update(MovieDetailEntity)
+        .set({ detail })
+        .where('id = :id', { id: movie.detail.id })
+        .execute();
     }
 
     // 업데이트된 영화 데이터 조회 및 반환
-    const newMovie = await this.movieRepository.findOne({
-      where: { id },
-      relations: ['detail', 'director'],
-    });
 
-    newMovie.genres = newGenres;
+    if (newGenres) {
+      await this.movieRepository
+        .createQueryBuilder()
+        .relation(MovieEntity, 'genres')
+        .of(id)
+        .addAndRemove(
+          newGenres.map((genre) => genre.id),
+          movie.genres.map((genre) => genre.id),
+        );
+    }
 
-    await this.movieRepository.save(newMovie);
+    // const newMovie = await this.movieRepository.findOne({
+    //   where: { id },
+    //   relations: ['detail', 'director'],
+    // });
+
+    // newMovie.genres = newGenres;
+
+    // await this.movieRepository.save(newMovie);
 
     return this.movieRepository.findOne({
       where: { id },
@@ -173,7 +254,7 @@ export class MovieService {
     });
   }
 
-  async deleteMovie(id: number) {
+  async remove(id: number) {
     const movie = await this.movieRepository.findOne({
       where: { id },
       relations: ['detail'],
@@ -183,7 +264,13 @@ export class MovieService {
       throw new NotFoundException('존재하지 않는 ID 값의 영화입니다.');
     }
 
-    await this.movieRepository.delete(id);
+    // await this.movieRepository.delete(id);
+    await this.movieRepository
+      .createQueryBuilder()
+      .delete()
+      .where('id = :id', { id })
+      .execute();
+
     await this.movieDetailRepository.delete(movie.detail.id);
 
     return id;
