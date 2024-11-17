@@ -2,9 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { MovieEntity } from './entity/movie.entity';
-import { Like, Repository } from 'typeorm';
+import { In, Like, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MovieDetailEntity } from './entity/movie-detail.entity';
+import { DirectorEntity } from 'src/director/entity/director.entity';
 
 @Injectable()
 export class MovieService {
@@ -13,16 +14,22 @@ export class MovieService {
     private readonly movieRepository: Repository<MovieEntity>,
     @InjectRepository(MovieDetailEntity)
     private readonly movieDetailRepository: Repository<MovieDetailEntity>,
+    @InjectRepository(DirectorEntity)
+    private readonly directorRepository: Repository<DirectorEntity>,
   ) {}
 
   getManyMovies(title?: string) {
     if (!title) {
-      return this.movieRepository.find();
+      return this.movieRepository.find({
+        relations: ['director'], // director 정보도 함께 가져옴
+      });
     }
+
     return this.movieRepository.find({
       where: {
         title: Like(`%${title}%`),
       },
+      relations: ['director'],
     });
   }
 
@@ -31,7 +38,7 @@ export class MovieService {
       where: {
         id,
       },
-      relations: ['detail'], // 같이 가져오고 싶은 값을 명시
+      relations: ['detail', 'director'], // 같이 가져오고 싶은 값을 명시
     });
 
     if (!movie) {
@@ -42,6 +49,16 @@ export class MovieService {
   }
 
   async createMovie(createMovieDto: CreateMovieDto) {
+    const director = await this.directorRepository.findOne({
+      where: {
+        id: createMovieDto.directorId,
+      },
+    });
+
+    if (!director) {
+      throw new NotFoundException('존재하지 않는 감독 ID 값입니다.');
+    }
+
     // 1. MovieDetailEntity 생성 및 저장 -> cascade가 활성화되지 않았다면, detail 객체를 미리 MovieDetailEntity에 저장하고, 저장된 인스턴스를 MovieEntity의 detail에 할당해야 함
     // const movieDetail = await this.movieDetailRepository.save({
     //   detail: createMovieDto.detail,
@@ -55,6 +72,7 @@ export class MovieService {
       detail: {
         detail: createMovieDto.detail, // 새로운 MovieDetailEntity 생성 (cascade:true 덕분에 detail을 자동으로 MovieDetailEntity에 매핑)
       },
+      director,
     });
 
     return movie;
@@ -71,10 +89,31 @@ export class MovieService {
       throw new NotFoundException('존재하지 않는 ID 값의 영화입니다.');
     }
 
-    const { detail, ...movieRest } = updateMovieDto;
+    let newDirector;
+
+    const { detail, directorId, ...movieRest } = updateMovieDto;
+
+    if (directorId) {
+      const director = await this.directorRepository.findOne({
+        where: {
+          id: directorId,
+        },
+      });
+
+      if (!director) {
+        throw new NotFoundException('존재하지 않는 감독 ID 값입니다.');
+      }
+
+      newDirector = director;
+    }
+
+    const movieUpdateFields = {
+      ...movieRest,
+      ...(newDirector && { director: newDirector }),
+    };
 
     // 데이터 업데이트 (수정된 Entity 전체 반환 X)
-    await this.movieRepository.update(id, movieRest);
+    await this.movieRepository.update(id, movieUpdateFields);
 
     if (detail) {
       await this.movieDetailRepository.update(
@@ -88,8 +127,9 @@ export class MovieService {
     // 업데이트된 영화 데이터 조회 및 반환
     const updatedMovie = await this.movieRepository.findOne({
       where: { id },
-      relations: ['detail'],
+      relations: ['detail', 'director'],
     });
+
     return updatedMovie;
   }
 

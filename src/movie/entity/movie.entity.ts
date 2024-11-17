@@ -19,7 +19,7 @@ export class MovieEntity extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ unique: true })
   title: string;
 
   @Column()
@@ -27,11 +27,15 @@ export class MovieEntity extends BaseEntity {
 
   @OneToOne(() => MovieDetailEntity, (movieDetail) => movieDetail.id, {
     cascade: true,
+    nullable: false,
   }) // movieDetail의 id와 연결
   @JoinColumn() // OneToOne 관계는 어떤 쪽에서 소유를 해야하는지 모르기 때문에 해당 어노테이션 무조건 사용
   detail: MovieDetailEntity; // detailId 생성됨
 
-  @ManyToOne(() => DirectorEntity, (director) => director.id)
+  @ManyToOne(() => DirectorEntity, (director) => director.id, {
+    cascade: true,
+    nullable: false,
+  })
   director: DirectorEntity; // directorId 생성됨
 }
 
