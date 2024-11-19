@@ -14,6 +14,7 @@ import {
 import { MovieService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
+import { MovieTitleValidationPipe } from './pipe/movie-title-validation.pipe';
 
 @Controller('movie')
 @UseInterceptors(ClassSerializerInterceptor) // class-transformer를 사용하여 응답 데이터를 serialize
@@ -26,7 +27,7 @@ export class MovieController {
   }
 
   @Get()
-  findAll(@Query('title') title: string) {
+  findAll(@Query('title', MovieTitleValidationPipe) title?: string) {
     return this.movieService.findAll(title);
   }
 
