@@ -9,6 +9,7 @@ import {
   Query,
   UseInterceptors,
   ClassSerializerInterceptor,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { MovieService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -30,17 +31,20 @@ export class MovieController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.movieService.findOne(+id);
+  findOne(
+    @Param('id', ParseIntPipe)
+    id: number,
+  ) {
+    return this.movieService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: UpdateMovieDto) {
-    return this.movieService.update(+id, body);
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateMovieDto) {
+    return this.movieService.update(id, body);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.movieService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.movieService.remove(id);
   }
 }
