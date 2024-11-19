@@ -1,16 +1,5 @@
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
-  ValidatorConstraint,
-  ValidatorConstraintInterface,
-} from 'class-validator';
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateMovieDto } from './create-movie.dto';
 
 // @ValidatorConstraint({
 //   async: true, // validator를 비동기적으로 실행 가능
@@ -42,30 +31,4 @@ import {
 //   };
 // }
 
-export class UpdateMovieDto {
-  // 필드가 존재할 경우, 해당 필드가 비어있지 않아야 한다.
-  @IsNotEmpty()
-  @IsOptional()
-  @IsString()
-  title?: string;
-
-  @IsArray()
-  @ArrayNotEmpty()
-  @IsNumber({}, { each: true })
-  @IsOptional()
-  genreIds: number[];
-
-  @IsNotEmpty()
-  @IsOptional()
-  @IsString()
-  detail?: string;
-
-  @IsNotEmpty()
-  @IsOptional()
-  @IsNumber()
-  directorId?: number;
-
-  // @Validate(PasswordValidator)
-  // @IsPasswordValid()
-  // test: string;
-}
+export class UpdateMovieDto extends PartialType(CreateMovieDto) {}
