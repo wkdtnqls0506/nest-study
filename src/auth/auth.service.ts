@@ -85,11 +85,7 @@ export class AuthService {
     return user;
   }
 
-  async login(rowToken: string) {
-    const { email, password } = this.parseBasicToken(rowToken);
-
-    const user = await this.authenticate(email, password);
-
+  async issueToken(user: UserEntity, isRefreshToken: boolean) {
     const refreshTokenSecret = this.configService.get<string>(
       'REFRESH_TOKEN_SECRET',
     );
@@ -97,30 +93,28 @@ export class AuthService {
       'ACCESS_TOKEN_SECRET',
     );
 
+    return this.jwtService.signAsync(
+      {
+        sub: user.id, // 토큰의 소유자
+        role: user.role, // 사용자의 권한 정보
+        type: isRefreshToken ? 'refresh' : 'access', // 토큰의 유형을 구분하기 위한 값
+      },
+      {
+        secret: isRefreshToken ? refreshTokenSecret : accessTokenSecret, // .env에 정의된 시크릿 키를 사용하여 토큰 암호화
+        expiresIn: isRefreshToken ? '24h' : 300, // 토큰의 만료 시간 설정
+      },
+    );
+  }
+
+  async login(rowToken: string) {
+    const { email, password } = this.parseBasicToken(rowToken);
+
+    const user = await this.authenticate(email, password);
+
     // JWT 생성
     return {
-      refreshToken: await this.jwtService.signAsync(
-        {
-          sub: user.id, // 토큰의 소유자
-          role: user.role, // 사용자의 권한 정보
-          type: 'refresh', // 토큰의 유형을 구분하기 위한 값
-        },
-        {
-          secret: refreshTokenSecret, // .env에 정의된 시크릿 키를 사용하여 토큰 암호화
-          expiresIn: '24h', // 토큰의 만료 시간 설정
-        },
-      ),
-      accessToken: await this.jwtService.signAsync(
-        {
-          sub: user.id,
-          role: user.role,
-          type: 'access',
-        },
-        {
-          secret: accessTokenSecret,
-          expiresIn: 300,
-        },
-      ),
+      refreshToken: await this.issueToken(user, true),
+      accessToken: await this.issueToken(user, false),
     };
   }
 }
