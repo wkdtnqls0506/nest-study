@@ -4,13 +4,15 @@ import { UserEntity } from 'src/user/entity/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-    private readonly configService: ConfigService, // 왜 불러오는거지??
+    private readonly configService: ConfigService, // .env 파일을 로드할 수 있는 ConfigModule
+    private readonly jwtService: JwtService, // JWT 생성 및 검증 -> 로그인 성공시 accessToken과 refreshToken을 생성해주는 역할을 해주고 있음
   ) {}
 
   parseBasicToken(rowToken: string) {
@@ -64,4 +66,61 @@ export class AuthService {
       where: { email },
     });
   }
+
+  async login(rowToken: string) {
+    const { email, password } = this.parseBasicToken(rowToken);
+
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('잘못된 로그인 정보입니다.');
+    }
+
+    // 비밀번호 비교
+    const passOk = await bcrypt.compare(password, user.password);
+
+    if (!passOk) {
+      throw new BadRequestException('잘못된 로그인 정보입니다.');
+    }
+
+    const refreshTokenSecret = this.configService.get<string>(
+      'REFRESH_TOKEN_SECRET',
+    );
+    const accessTokenSecret = this.configService.get<string>(
+      'ACCESS_TOKEN_SECRET',
+    );
+
+    // JWT 생성
+    return {
+      refreshToken: await this.jwtService.signAsync(
+        {
+          sub: user.id, // 토큰의 소유자
+          role: user.role, // 사용자의 권한 정보
+          type: 'refresh', // 토큰의 유형을 구분하기 위한 값
+        },
+        {
+          secret: refreshTokenSecret, // .env에 정의된 시크릿 키를 사용하여 토큰 암호화
+          expiresIn: '24h', // 토큰의 만료 시간 설정
+        },
+      ),
+      accessToken: await this.jwtService.signAsync(
+        {
+          sub: user.id,
+          role: user.role,
+          type: 'access',
+        },
+        {
+          secret: accessTokenSecret,
+          expiresIn: 300,
+        },
+      ),
+    };
+  }
 }
+
+/**
+ * signAsync() 메서드를 사용하여 비동기적으로 토큰 생성 가능
+ * 사용자 정보를 바탕으로 토큰에 담을 Payload와 토큰의 암호화를 위한 Secret Key 및 만료 시간 설정
+ */

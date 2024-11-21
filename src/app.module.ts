@@ -15,8 +15,9 @@ import { UserEntity } from './user/entity/user.entity';
 
 @Module({
   imports: [
+    // .env 파일을 load 및 parsing
     ConfigModule.forRoot({
-      isGlobal: true,
+      isGlobal: true, // 전역 모듈로 설정
       validationSchema: Joi.object({
         ENV: Joi.string().valid('dev', 'prod').required(),
         DB_TYPE: Joi.string().valid('postgres').required(),
@@ -26,6 +27,8 @@ import { UserEntity } from './user/entity/user.entity';
         DB_PASSWORD: Joi.string().required(),
         DB_DATABASE: Joi.string().required(),
         HASH_ROUNDS: Joi.number().required(),
+        ACCESS_TOKEN_SECRET: Joi.string().required(),
+        REFRESH_TOKEN_SECRET: Joi.string().required(),
       }),
     }),
     TypeOrmModule.forRootAsync({
