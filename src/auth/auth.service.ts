@@ -10,7 +10,6 @@ import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { envVariableKeys } from 'src/common/const/env.const';
-import { env } from 'process';
 
 @Injectable()
 export class AuthService {
@@ -22,81 +21,89 @@ export class AuthService {
   ) {}
 
   parseBasicToken(rawToken: string) {
-    // 1. 토큰을 ' ' 기준으로 split 한 후 토큰값만 추출 -> ['Basic', 'token']
+    /// 1) 토큰을 ' ' 기준으로 스플릿 한 후 토큰 값만 추출하기
+    /// ['Basic', $token]
     const basicSplit = rawToken.split(' ');
 
     if (basicSplit.length !== 2) {
-      throw new BadRequestException('토큰 포맷이 잘못됐습니다.');
+      throw new BadRequestException('토큰 포맷이 잘못됐습니다!');
     }
 
     const [basic, token] = basicSplit;
 
     if (basic.toLowerCase() !== 'basic') {
-      throw new BadRequestException('토큰 포맷이 잘못됐습니다.');
+      throw new BadRequestException('토큰 포맷이 잘못됐습니다!');
     }
 
-    // 2. 추출한 토큰을 base64 디코딩해서 이메일과 비밀번호로 나눈다.
+    /// 2) 추출한 토큰을 base64 디코딩해서 이메일과 비밀번호로 나눈다.
     const decoded = Buffer.from(token, 'base64').toString('utf-8');
 
-    // -> "email:password"
+    /// "email:password"
+    /// [email, password]
     const tokenSplit = decoded.split(':');
 
     if (tokenSplit.length !== 2) {
-      throw new BadRequestException('토큰 포맷이 잘못됐습니다.');
+      throw new BadRequestException('토큰 포맷이 잘못됐습니다!');
     }
 
     const [email, password] = tokenSplit;
 
-    return { email, password };
+    return {
+      email,
+      password,
+    };
   }
 
   async parseBearerToken(rawToken: string, isRefreshToken: boolean) {
-    const bearerSplit = rawToken.split(' ');
+    const basicSplit = rawToken.split(' ');
 
-    if (bearerSplit.length !== 2) {
-      throw new BadRequestException('토큰 포맷이 잘못됐습니다.');
+    if (basicSplit.length !== 2) {
+      throw new BadRequestException('토큰 포맷이 잘못됐습니다!');
     }
 
-    const [bearer, token] = bearerSplit;
+    const [bearer, token] = basicSplit;
 
     if (bearer.toLowerCase() !== 'bearer') {
-      throw new BadRequestException('토큰 포맷이 잘못됐습니다.');
+      throw new BadRequestException('토큰 포맷이 잘못됐습니다!');
     }
 
     try {
-      // token 검증
       const payload = await this.jwtService.verifyAsync(token, {
         secret: this.configService.get<string>(
-          envVariableKeys.refreshTokenSecret,
+          isRefreshToken
+            ? envVariableKeys.refreshTokenSecret
+            : envVariableKeys.accessTokenSecret,
         ),
       });
 
       if (isRefreshToken) {
         if (payload.type !== 'refresh') {
-          throw new BadRequestException('토큰 타입이 잘못됐습니다.');
+          throw new BadRequestException('Refresh 토큰을 입력 해주세요!');
         }
       } else {
         if (payload.type !== 'access') {
-          throw new BadRequestException('토큰 타입이 잘못됐습니다.');
+          throw new BadRequestException('Access 토큰을 입력 해주세요!');
         }
       }
 
       return payload;
-    } catch (error) {
-      throw new UnauthorizedException('토큰이 만료되었습니다.');
+    } catch (e) {
+      throw new UnauthorizedException('토큰이 만료됐습니다!');
     }
   }
 
-  // rawToken: Basic $token
+  /// rawToken -> "Basic $token"
   async register(rawToken: string) {
     const { email, password } = this.parseBasicToken(rawToken);
 
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: {
+        email,
+      },
     });
 
     if (user) {
-      throw new BadRequestException('이미 가입한 이메일입니다.');
+      throw new BadRequestException('이미 가입한 이메일 입니다!');
     }
 
     const hash = await bcrypt.hash(
@@ -106,27 +113,31 @@ export class AuthService {
 
     await this.userRepository.save({
       email,
-      password: hash, // DB에 저장할 땐 암호화된 비밀번호를 저장
+      password: hash,
     });
 
     return this.userRepository.findOne({
-      where: { email },
+      where: {
+        email,
+      },
     });
   }
 
   async authenticate(email: string, password: string) {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: {
+        email,
+      },
     });
 
     if (!user) {
-      throw new BadRequestException('잘못된 로그인 정보입니다.');
+      throw new BadRequestException('잘못된 로그인 정보입니다!');
     }
 
     const passOk = await bcrypt.compare(password, user.password);
 
     if (!passOk) {
-      throw new BadRequestException('잘못된 로그인 정보입니다.');
+      throw new BadRequestException('잘못된 로그인 정보입니다!');
     }
 
     return user;
@@ -142,13 +153,13 @@ export class AuthService {
 
     return this.jwtService.signAsync(
       {
-        sub: user.id, // 토큰의 소유자
-        role: user.role, // 사용자의 권한 정보
-        type: isRefreshToken ? 'refresh' : 'access', // 토큰의 유형을 구분하기 위한 값
+        sub: user.id,
+        role: user.role,
+        type: isRefreshToken ? 'refresh' : 'access',
       },
       {
-        secret: isRefreshToken ? refreshTokenSecret : accessTokenSecret, // .env에 정의된 시크릿 키를 사용하여 토큰 암호화
-        expiresIn: isRefreshToken ? '24h' : 300, // 토큰의 만료 시간 설정
+        secret: isRefreshToken ? refreshTokenSecret : accessTokenSecret,
+        expiresIn: isRefreshToken ? '24h' : 300,
       },
     );
   }
@@ -158,7 +169,6 @@ export class AuthService {
 
     const user = await this.authenticate(email, password);
 
-    // JWT 생성
     return {
       refreshToken: await this.issueToken(user, true),
       accessToken: await this.issueToken(user, false),
