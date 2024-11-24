@@ -21,6 +21,7 @@ import { envVariableKeys } from './common/const/env.const';
 import { BearerTokenMiddleware } from './auth/middleware/bearer-token.middleware';
 import { AuthGuard } from './auth/guard/auth.guard';
 import { APP_GUARD } from '@nestjs/core';
+import { RBACGuard } from './auth/guard/rbac.guard';
 
 @Module({
   imports: [
@@ -69,6 +70,10 @@ import { APP_GUARD } from '@nestjs/core';
     {
       provide: APP_GUARD,
       useClass: AuthGuard, // 프로젝트 전체에 AuthGuard 적용
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RBACGuard, // 프로젝트 전체에 RBACGuard 적용
     },
   ],
 })
