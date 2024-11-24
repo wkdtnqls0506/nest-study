@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MovieDetailEntity } from './entity/movie-detail.entity';
 import { DirectorEntity } from 'src/director/entity/director.entity';
 import { GenreEntity } from 'src/genre/entity/genre.entity';
+import { GetMoviesDto } from './dto/get-movies.dto';
+import { CommonService } from 'src/common/common.service';
 
 @Injectable()
 export class MovieService {
@@ -20,9 +22,12 @@ export class MovieService {
     @InjectRepository(GenreEntity)
     private readonly genreRepository: Repository<GenreEntity>,
     private readonly dataSource: DataSource,
+    private readonly commonService: CommonService,
   ) {}
 
-  async findAll(title?: string) {
+  async findAll(dto: GetMoviesDto) {
+    const { title, page, take } = dto;
+
     const qb = await this.movieRepository
       .createQueryBuilder('movie') // MovieEntity에 대한 QueryBuilder 생성
       .leftJoinAndSelect('movie.director', 'director') // relations: ['director']와 동일
@@ -30,6 +35,10 @@ export class MovieService {
 
     if (title) {
       qb.where('movie.title like :title', { title: `%${title}%` });
+    }
+
+    if (page && take) {
+      this.commonService.applyPagePaginationParamsToQb(qb, dto);
     }
 
     return await qb.getManyAndCount();

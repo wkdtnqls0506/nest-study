@@ -20,6 +20,7 @@ import { AuthGuard } from 'src/auth/guard/auth.guard';
 import { Public } from 'src/auth/decorator/public.decorator';
 import { RBAC } from 'src/auth/decorator/rbac.decorator';
 import { Role } from 'src/user/entity/user.entity';
+import { GetMoviesDto } from './dto/get-movies.dto';
 
 @Controller('movie')
 @UseInterceptors(ClassSerializerInterceptor) // class-transformer를 사용하여 응답 데이터를 serialize
@@ -35,8 +36,8 @@ export class MovieController {
 
   @Public()
   @Get()
-  findAll(@Query('title', MovieTitleValidationPipe) title?: string) {
-    return this.movieService.findAll(title);
+  findAll(@Query() dto: GetMoviesDto) {
+    return this.movieService.findAll(dto);
   }
 
   @Public()
